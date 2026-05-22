@@ -270,17 +270,29 @@ class OrderProvider extends ChangeNotifier {
   Future<void> cargarMios(String usuarioId) async {
     _cargando = true;
     notifyListeners();
-    _pedidos = await _svc.obtenerPorUsuario(usuarioId);
-    _cargando = false;
-    notifyListeners();
+    try {
+      _pedidos = await _svc.obtenerPorUsuario(usuarioId);
+    } catch (e) {
+      _pedidos = [];
+      debugPrint('Error cargando pedidos: $e');
+    } finally {
+      _cargando = false;
+      notifyListeners();
+    }
   }
 
   Future<void> cargarTodos({String? query}) async {
     _cargando = true;
     notifyListeners();
-    _pedidos = await _svc.obtenerTodos(query: query);
-    _cargando = false;
-    notifyListeners();
+    try {
+      _pedidos = await _svc.obtenerTodos(query: query);
+    } catch (e) {
+      _pedidos = [];
+      debugPrint('Error cargando todos los pedidos: $e');
+    } finally {
+      _cargando = false;
+      notifyListeners();
+    }
   }
 
   Future<Pedido?> hacer({
@@ -347,9 +359,14 @@ class ColeccionProvider extends ChangeNotifier {
   Future<void> cargar() async {
     _cargando = true;
     notifyListeners();
-    _colecciones = await _svc.obtenerTodas();
-    _cargando = false;
-    notifyListeners();
+    try {
+      _colecciones = await _svc.obtenerTodas();
+    } catch (_) {
+      _colecciones = [];
+    } finally {
+      _cargando = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> crear(Coleccion c, {File? imagen}) async {
@@ -400,9 +417,14 @@ class OfertaProvider extends ChangeNotifier {
   Future<void> cargar() async {
     _cargando = true;
     notifyListeners();
-    _ofertas = await _svc.obtenerTodas();
-    _cargando = false;
-    notifyListeners();
+    try {
+      _ofertas = await _svc.obtenerTodas();
+    } catch (_) {
+      _ofertas = [];
+    } finally {
+      _cargando = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> crear(Oferta o) async {

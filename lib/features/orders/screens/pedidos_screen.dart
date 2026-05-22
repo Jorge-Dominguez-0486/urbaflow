@@ -1,6 +1,7 @@
 // lib/features/orders/screens/pedidos_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import '../../../shared/widgets/shared_widgets.dart';
 import '../../../core/theme.dart';
 import '../../providers.dart';
@@ -17,18 +18,27 @@ class _PedidosScreenState extends State<PedidosScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final auth = context.read<AuthProvider>();
-      if (auth.usuario != null)
+      if (auth.usuario != null) {
+        // Obligamos a recargar la lista de pedidos al abrir la pantalla
         context.read<OrderProvider>().cargarMios(auth.usuario!.uid);
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final orders = context.watch<OrderProvider>();
+
     return Scaffold(
-      appBar: const UfAppBar(title: 'Mis Pedidos'),
+      appBar: AppBar(
+        title: const Text('Mis Pedidos', style: TextStyle(color: Colors.white)),
+        backgroundColor: AppColors.primary,
+        leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            onPressed: () => context.pop()),
+      ),
       body: orders.cargando
-          ? const UfLoading()
+          ? const Center(child: CircularProgressIndicator())
           : orders.pedidos.isEmpty
               ? const UfEmptyState(
                   mensaje: 'Aún no tienes pedidos', icono: Icons.receipt_long)

@@ -296,13 +296,7 @@ class OrderService {
     required String direccionEnvio,
     String detallePedido = '',
   }) async {
-    final batch = _db.batch();
-
-    for (final item in items) {
-      final prodRef = _db.collection(_prodCol).doc(item.productoId);
-      batch.update(prodRef, {'stock': FieldValue.increment(-item.cantidad)});
-    }
-
+    // 1. Primero guardamos el pedido (esto siempre debe funcionar)
     final pedido = Pedido(
       usuarioId: usuario.uid,
       usuarioNombre: usuario.nombre,
@@ -326,8 +320,21 @@ class OrderService {
     );
 
     final pedidoRef = _db.collection(_col).doc();
-    batch.set(pedidoRef, pedido.toFirestore());
-    await batch.commit();
+    await pedidoRef.set(pedido.toFirestore());
+
+    // 2. Luego actualizamos el stock (si falla, el pedido ya está guardado)
+    try {
+      final batch = _db.batch();
+      for (final item in items) {
+        final prodRef = _db.collection(_prodCol).doc(item.productoId);
+        batch.update(prodRef, {'stock': FieldValue.increment(-item.cantidad)});
+      }
+      await batch.commit();
+    } catch (e) {
+      // El stock no se pudo actualizar pero el pedido ya quedó guardado
+      debugPrint('Advertencia: no se actualizó el stock: $e');
+    }
+
     return Pedido(
       id: pedidoRef.id,
       usuarioId: pedido.usuarioId,
@@ -348,9 +355,10 @@ class OrderService {
     final snap = await _db
         .collection(_col)
         .where('usuarioId', isEqualTo: usuarioId)
-        .orderBy('creado', descending: true)
         .get();
-    return snap.docs.map(Pedido.fromFirestore).toList();
+    final pedidos = snap.docs.map(Pedido.fromFirestore).toList();
+    pedidos.sort((a, b) => b.creado.compareTo(a.creado));
+    return pedidos;
   }
 
   Future<List<Pedido>> obtenerTodos({String? query}) async {
