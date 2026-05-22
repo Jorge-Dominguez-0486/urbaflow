@@ -6,6 +6,7 @@ import '../../../core/theme.dart';
 import '../../../models/models.dart';
 import '../../../shared/widgets/shared_widgets.dart';
 import '../../providers.dart';
+import '../../../services/firebase_services.dart'; // Agregamos los servicios
 
 class AdminProductoFormScreen extends StatefulWidget {
   final String tipo;
@@ -25,6 +26,28 @@ class _AdminProductoFormScreenState extends State<AdminProductoFormScreen> {
   final _precioCtrl = TextEditingController();
   final _stockCtrl = TextEditingController();
   TipoProducto _tipoSeleccionado = TipoProducto.zapato;
+  bool _cargando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // ESTO FALTABA: Rellenar los datos si es edición
+    if (widget.productoId != null && widget.productoId != 'nuevo') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final prov = context.read<ProductProvider>();
+        // Buscamos el producto en la lista cargada
+        final p =
+            prov.productos.firstWhere((prod) => prod.id == widget.productoId);
+        setState(() {
+          _nombreCtrl.text = p.nombre;
+          _descCtrl.text = p.descripcion;
+          _precioCtrl.text = p.precio.toString();
+          _stockCtrl.text = p.stock.toString();
+          _tipoSeleccionado = p.tipo;
+        });
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -37,9 +60,10 @@ class _AdminProductoFormScreenState extends State<AdminProductoFormScreen> {
 
   void _guardar() async {
     if (_formKey.currentState!.validate()) {
-      final prov = context.read<ProductProvider>();
+      setState(() => _cargando = true);
 
       final nuevoProducto = Producto(
+        id: widget.productoId != 'nuevo' ? widget.productoId : null,
         nombre: _nombreCtrl.text,
         descripcion: _descCtrl.text,
         precio: double.parse(_precioCtrl.text),
@@ -48,12 +72,31 @@ class _AdminProductoFormScreenState extends State<AdminProductoFormScreen> {
         fechaAgregado: DateTime.now(),
       );
 
-      final exito = await prov.crearProducto(nuevoProducto);
+      try {
+        if (widget.productoId != null && widget.productoId != 'nuevo') {
+          await ProductService()
+              .actualizar(nuevoProducto); // Actualiza si ya existe
+        } else {
+          await ProductService().crear(nuevoProducto); // Crea si es nuevo
+        }
 
-      if (exito && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Prenda guardada exitosamente')));
-        context.pop(); // Regresamos a la lista
+        // Recargamos la lista en el proveedor
+        await context.read<ProductProvider>().cargar();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Guardado exitosamente'),
+              backgroundColor: AppColors.success));
+          context.pop(); // <-- ESTO TE REGRESA A LA PANTALLA ANTERIOR
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Error al guardar'),
+              backgroundColor: AppColors.danger));
+        }
+      } finally {
+        if (mounted) setState(() => _cargando = false);
       }
     }
   }
@@ -61,69 +104,76 @@ class _AdminProductoFormScreenState extends State<AdminProductoFormScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const UfAppBar(title: 'Añadir Prenda'),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              TextFormField(
-                controller: _nombreCtrl,
-                decoration:
-                    const InputDecoration(labelText: 'Nombre de la prenda'),
-                validator: (v) => v!.isEmpty ? 'Requerido' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _descCtrl,
-                decoration: const InputDecoration(labelText: 'Descripción'),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 16),
-              Row(children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _precioCtrl,
-                    decoration: const InputDecoration(
-                        labelText: 'Precio', prefixText: '\$'),
-                    keyboardType: TextInputType.number,
-                    validator: (v) => v!.isEmpty ? 'Requerido' : null,
-                  ),
+      // Cambiamos el título dinámicamente
+      appBar: UfAppBar(
+          title:
+              widget.productoId != 'nuevo' ? 'Editar Prenda' : 'Añadir Prenda'),
+      body: _cargando
+          ? const UfLoading()
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    TextFormField(
+                      controller: _nombreCtrl,
+                      decoration: const InputDecoration(
+                          labelText: 'Nombre de la prenda'),
+                      validator: (v) => v!.isEmpty ? 'Requerido' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _descCtrl,
+                      decoration:
+                          const InputDecoration(labelText: 'Descripción'),
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _precioCtrl,
+                          decoration: const InputDecoration(
+                              labelText: 'Precio', prefixText: '\$'),
+                          keyboardType: TextInputType.number,
+                          validator: (v) => v!.isEmpty ? 'Requerido' : null,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _stockCtrl,
+                          decoration: const InputDecoration(
+                              labelText: 'Stock (Cantidad)'),
+                          keyboardType: TextInputType.number,
+                          validator: (v) => v!.isEmpty ? 'Requerido' : null,
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<TipoProducto>(
+                      value: _tipoSeleccionado,
+                      decoration: const InputDecoration(labelText: 'Categoría'),
+                      items: TipoProducto.values.map((t) {
+                        return DropdownMenuItem(
+                            value: t, child: Text(t.etiqueta));
+                      }).toList(),
+                      onChanged: (v) => setState(() => _tipoSeleccionado = v!),
+                    ),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _guardar,
+                        child: const Text('Guardar Prenda',
+                            style: TextStyle(fontSize: 16)),
+                      ),
+                    )
+                  ],
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: TextFormField(
-                    controller: _stockCtrl,
-                    decoration:
-                        const InputDecoration(labelText: 'Stock (Cantidad)'),
-                    keyboardType: TextInputType.number,
-                    validator: (v) => v!.isEmpty ? 'Requerido' : null,
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<TipoProducto>(
-                value: _tipoSeleccionado,
-                decoration: const InputDecoration(labelText: 'Categoría'),
-                items: TipoProducto.values.map((t) {
-                  return DropdownMenuItem(value: t, child: Text(t.etiqueta));
-                }).toList(),
-                onChanged: (v) => setState(() => _tipoSeleccionado = v!),
               ),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _guardar,
-                  child: const Text('Guardar Prenda',
-                      style: TextStyle(fontSize: 16)),
-                ),
-              )
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }

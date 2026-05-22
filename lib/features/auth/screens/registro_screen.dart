@@ -7,129 +7,112 @@ import '../../providers.dart';
 
 class RegistroScreen extends StatefulWidget {
   const RegistroScreen({super.key});
+
   @override
   State<RegistroScreen> createState() => _RegistroScreenState();
 }
 
 class _RegistroScreenState extends State<RegistroScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _nombreCtrl = TextEditingController();
   final _correoCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
-  final _pass2Ctrl = TextEditingController();
+  bool _cargando = false;
 
-  @override
-  void dispose() {
-    _nombreCtrl.dispose();
-    _correoCtrl.dispose();
-    _passCtrl.dispose();
-    _pass2Ctrl.dispose();
-    super.dispose();
-  }
+  void _registrar() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _cargando = true);
+      final auth = context.read<AuthProvider>();
 
-  Future<void> _registrar() async {
-    if (_passCtrl.text != _pass2Ctrl.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Las contraseñas no coinciden'),
-            backgroundColor: AppColors.danger),
-      );
-      return;
+      try {
+        await auth.registrar(
+            _nombreCtrl.text, _correoCtrl.text, _passCtrl.text);
+
+        // Al registrarse en Firebase, la sesión se inicia sola.
+        // Cerramos sesión para obligarlo a ir al Login como pediste.
+        await auth.cerrarSesion();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('¡Cuenta creada! Por favor inicia sesión',
+                  style: TextStyle(color: Colors.white)),
+              backgroundColor: AppColors.success));
+          context.go('/login'); // <-- Redirige al Login
+        }
+      } catch (e) {
+        // SI HAY ERROR, LO ATRAPAMOS AQUÍ Y NO TE SACA DE LA PANTALLA
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Error: No se pudo registrar. Verifica tus datos.',
+                  style: const TextStyle(color: Colors.white)),
+              backgroundColor: AppColors.danger));
+        }
+      } finally {
+        if (mounted) setState(() => _cargando = false);
+      }
     }
-    final auth = context.read<AuthProvider>();
-    final ok = await auth.registrar(
-        _nombreCtrl.text.trim(), _correoCtrl.text.trim(), _passCtrl.text);
-    if (!mounted) return;
-    if (ok) context.go('/');
   }
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
     return Scaffold(
-      backgroundColor: AppColors.background,
+      appBar: AppBar(
+          title:
+              const Text('Crear Cuenta', style: TextStyle(color: Colors.white)),
+          backgroundColor: AppColors.primary,
+          iconTheme: const IconThemeData(color: Colors.white)),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: Column(children: [
-              const Icon(Icons.store, color: AppColors.primary, size: 64),
-              const SizedBox(height: 8),
-              Text('URBA & FLOW',
-                  style: Theme.of(context)
-                      .textTheme
-                      .displayLarge!
-                      .copyWith(fontSize: 28)),
-              const SizedBox(height: 32),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(children: [
-                    Text('Crear cuenta',
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineMedium!
-                            .copyWith(fontSize: 20)),
-                    const SizedBox(height: 24),
-                    if (auth.error != null)
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        margin: const EdgeInsets.only(bottom: 16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFDEDED),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(auth.error!,
-                            style: const TextStyle(color: AppColors.danger)),
-                      ),
-                    TextFormField(
-                      controller: _nombreCtrl,
-                      decoration: const InputDecoration(
-                          labelText: 'Nombre completo',
-                          prefixIcon: Icon(Icons.person_outlined)),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _correoCtrl,
-                      decoration: const InputDecoration(
-                          labelText: 'Correo electrónico',
-                          prefixIcon: Icon(Icons.email_outlined)),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _passCtrl,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                          labelText: 'Contraseña',
-                          prefixIcon: Icon(Icons.lock_outlined)),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _pass2Ctrl,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                          labelText: 'Confirmar contraseña',
-                          prefixIcon: Icon(Icons.lock_outlined)),
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      child: auth.cargando
-                          ? const Center(child: CircularProgressIndicator())
-                          : ElevatedButton(
-                              onPressed: _registrar,
-                              child: const Text('Registrarse')),
-                    ),
-                    const SizedBox(height: 12),
-                    TextButton(
-                      onPressed: () => context.go('/login'),
-                      child: const Text('¿Ya tienes cuenta? Inicia sesión'),
-                    ),
-                  ]),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Icon(Icons.person_add,
+                    size: 80, color: AppColors.primary),
+                const SizedBox(height: 32),
+                TextFormField(
+                  controller: _nombreCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Nombre Completo',
+                      prefixIcon: Icon(Icons.person)),
+                  validator: (v) => v!.isEmpty ? 'Ingresa tu nombre' : null,
                 ),
-              ),
-            ]),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _correoCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                      labelText: 'Correo Electrónico',
+                      prefixIcon: Icon(Icons.email)),
+                  validator: (v) => v!.contains('@') ? null : 'Correo inválido',
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _passCtrl,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                      labelText: 'Contraseña', prefixIcon: Icon(Icons.lock)),
+                  validator: (v) =>
+                      v!.length < 6 ? 'Mínimo 6 caracteres' : null,
+                ),
+                const SizedBox(height: 32),
+                _cargando
+                    ? const Center(child: CircularProgressIndicator())
+                    : ElevatedButton(
+                        onPressed: _registrar,
+                        child: const Text('Registrarme',
+                            style: TextStyle(fontSize: 16)),
+                      ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () => context.go('/login'),
+                  child: const Text('¿Ya tienes cuenta? Inicia Sesión'),
+                )
+              ],
+            ),
           ),
         ),
       ),

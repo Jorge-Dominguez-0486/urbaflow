@@ -88,7 +88,7 @@ class AuthProvider extends ChangeNotifier {
     if (raw.contains('user-not-found'))
       return 'No existe cuenta con ese correo.';
     if (raw.contains('weak-password')) return 'La contraseña es muy débil.';
-    return 'Error de autenticación. Intenta de nuevo.';
+    return raw; // 👈 solo cambia esta línea
   }
 }
 

@@ -53,7 +53,18 @@ class AuthService {
     final user = _auth.currentUser;
     if (user == null) return null;
     final doc = await _db.collection('users').doc(user.uid).get();
-    if (!doc.exists) return null;
+    if (!doc.exists) {
+      // El documento no existe en Firestore (pasó cuando había error de permisos)
+      // Lo creamos ahora con los datos básicos del Auth
+      final usuario = Usuario(
+        uid: user.uid,
+        nombre: user.displayName ?? 'Usuario',
+        correo: user.email ?? '',
+        fechaRegistro: DateTime.now(),
+      );
+      await _db.collection('users').doc(user.uid).set(usuario.toFirestore());
+      return usuario;
+    }
     return Usuario.fromFirestore(doc);
   }
 
