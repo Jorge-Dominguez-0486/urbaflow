@@ -73,7 +73,6 @@ class ProductService {
   final _storage = FirebaseStorage.instance;
   static const _col = 'products';
 
-  // Obtener todos (con filtro opcional de tipo)
   Future<List<Producto>> obtenerTodos({TipoProducto? tipo}) async {
     Query q = _db.collection(_col).orderBy('fechaAgregado', descending: true);
     if (tipo != null) q = q.where('tipo', isEqualTo: tipo.name);
@@ -81,7 +80,6 @@ class ProductService {
     return snap.docs.map(Producto.fromFirestore).toList();
   }
 
-  // Buscar por nombre
   Future<List<Producto>> buscar(String query) async {
     final snap = await _db
         .collection(_col)
@@ -90,7 +88,6 @@ class ProductService {
     return snap.docs.map(Producto.fromFirestore).toList();
   }
 
-  // Obtener destacados
   Future<List<Producto>> obtenerDestacados() async {
     final snap = await _db
         .collection(_col)
@@ -100,13 +97,11 @@ class ProductService {
     return snap.docs.map(Producto.fromFirestore).toList();
   }
 
-  // Obtener por id
   Future<Producto?> obtenerPorId(String id) async {
     final doc = await _db.collection(_col).doc(id).get();
     return doc.exists ? Producto.fromFirestore(doc) : null;
   }
 
-  // Obtener por colección
   Future<List<Producto>> obtenerPorColeccion(String coleccionId) async {
     final snap = await _db
         .collection(_col)
@@ -115,7 +110,6 @@ class ProductService {
     return snap.docs.map(Producto.fromFirestore).toList();
   }
 
-  // Crear
   Future<Producto> crear(Producto producto, {File? imagen}) async {
     String? imagenUrl;
     if (imagen != null) {
@@ -123,10 +117,9 @@ class ProductService {
     }
     final p = producto.copyWith(imagenUrl: imagenUrl);
     final ref = await _db.collection(_col).add(p.toFirestore());
-    return p.copyWith(); // retorna con datos guardados
+    return p.copyWith();
   }
 
-  // Actualizar
   Future<void> actualizar(Producto producto, {File? nuevaImagen}) async {
     String? imagenUrl = producto.imagenUrl;
     if (nuevaImagen != null) {
@@ -136,12 +129,10 @@ class ProductService {
     await _db.collection(_col).doc(producto.id).update(p.toFirestore());
   }
 
-  // Eliminar
   Future<void> eliminar(String id) async {
     await _db.collection(_col).doc(id).delete();
   }
 
-  // Actualizar stock
   Future<void> actualizarStock(String id, int cantidad) async {
     await _db.collection(_col).doc(id).update({
       'stock': FieldValue.increment(cantidad),
@@ -155,7 +146,6 @@ class ProductService {
     return ref.getDownloadURL();
   }
 
-  // Stream en tiempo real para el panel admin
   Stream<List<Producto>> streamPorTipo(TipoProducto tipo) {
     return _db
         .collection(_col)
@@ -297,7 +287,6 @@ class OrderService {
   }) async {
     final batch = _db.batch();
 
-    // Descontar stock de cada producto
     for (final item in items) {
       final prodRef = _db.collection(_prodCol).doc(item.productoId);
       batch.update(prodRef, {'stock': FieldValue.increment(-item.cantidad)});
@@ -376,9 +365,7 @@ class OrderService {
 
   Future<void> cancelar(Pedido pedido) async {
     final batch = _db.batch();
-    // Restaurar stock
     for (final item in pedido.items) {
-      // busca por nombre porque ya no tenemos el id directo
       final snap = await _db
           .collection(_prodCol)
           .where('nombre', isEqualTo: item.nombreProducto)
@@ -466,12 +453,13 @@ class UserService {
     return snap.size;
   }
 
+  // <-- CORREGIDO ERROR DE CAST <double>
   Future<double> totalGastado(String usuarioId) async {
     final snap = await _db
         .collection('orders')
         .where('usuarioId', isEqualTo: usuarioId)
         .get();
-    return snap.docs.fold(0.0, (acc, doc) {
+    return snap.docs.fold<double>(0.0, (acc, doc) {
       final d = doc.data() as Map<String, dynamic>;
       return acc + ((d['total'] as num?)?.toDouble() ?? 0.0);
     });

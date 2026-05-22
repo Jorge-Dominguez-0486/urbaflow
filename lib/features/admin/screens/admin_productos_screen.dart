@@ -44,8 +44,8 @@ class AdminProductosScreen extends StatelessWidget {
         icon: const Icon(Icons.add, color: Colors.white),
         label:
             const Text('Nueva Prenda', style: TextStyle(color: Colors.white)),
-        onTap: () =>
-            context.go('/admin/productos/nuevo/nuevo'), // Mandamos a crear
+        onPressed: () => // <-- CORREGIDO DE onTap A onPressed
+            context.go('/admin/productos/nuevo/nuevo'),
       ),
     );
   }

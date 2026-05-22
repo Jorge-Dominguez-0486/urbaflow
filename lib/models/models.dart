@@ -383,6 +383,7 @@ class Pedido {
   final String direccionEnvio;
   final String numeroSeguimiento;
   final String detallePedido;
+  final String estado; // <-- CORRECCIÓN: Campo agregado
   final DateTime creado;
   final List<PedidoItem> items;
 
@@ -397,6 +398,7 @@ class Pedido {
     required this.direccionEnvio,
     required this.numeroSeguimiento,
     this.detallePedido = '',
+    this.estado = 'pendiente', // <-- CORRECCIÓN: Valor inicial
     required this.creado,
     required this.items,
   });
@@ -415,6 +417,7 @@ class Pedido {
       direccionEnvio: d['direccionEnvio'] ?? '',
       numeroSeguimiento: d['numeroSeguimiento'] ?? '',
       detallePedido: d['detallePedido'] ?? '',
+      estado: d['estado'] ?? 'pendiente', // <-- CORRECCIÓN: Lectura de BD
       creado: (d['creado'] as Timestamp?)?.toDate() ?? DateTime.now(),
       items: rawItems
           .map((i) => PedidoItem.fromMap(i as Map<String, dynamic>))
@@ -432,6 +435,7 @@ class Pedido {
         'direccionEnvio': direccionEnvio,
         'numeroSeguimiento': numeroSeguimiento,
         'detallePedido': detallePedido,
+        'estado': estado, // <-- CORRECCIÓN: Guardado a BD
         'creado': Timestamp.fromDate(creado),
         'items': items.map((i) => i.toMap()).toList(),
       };
